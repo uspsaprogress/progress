@@ -79,16 +79,6 @@
             background-color: #f8f9fa;
             border-radius: 5px;
         }
-        .debug-info {
-            font-family: monospace;
-            background-color: #f5f5f5;
-            padding: 10px;
-            border-radius: 4px;
-            white-space: pre;
-            overflow-x: auto;
-            margin-top: 15px;
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -118,8 +108,6 @@
             <div id="current-class"></div>
             <div id="current-avg"></div>
             <div id="next-class-info" class="next-class-info"></div>
-            <button id="toggle-debug" class="toggle-btn">Show Calculation Details</button>
-            <div id="debug-info" class="debug-info"></div>
         </div>
         
         <div id="chart-container">
@@ -183,20 +171,6 @@
                     toggleBtn.textContent = 'Show Instructions';
                 }
             });
-            
-            // Toggle debug info visibility
-            const toggleDebugBtn = document.getElementById('toggle-debug');
-            const debugInfoDiv = document.getElementById('debug-info');
-            
-            toggleDebugBtn.addEventListener('click', function() {
-                if (debugInfoDiv.style.display === 'none') {
-                    debugInfoDiv.style.display = 'block';
-                    toggleDebugBtn.textContent = 'Hide Calculation Details';
-                } else {
-                    debugInfoDiv.style.display = 'none';
-                    toggleDebugBtn.textContent = 'Show Calculation Details';
-                }
-            });
         });
         
         // Process data and generate chart using regex
@@ -207,7 +181,6 @@
             const resultsContainer = document.getElementById('results-container');
             const currentClassDiv = document.getElementById('current-class');
             const currentAvgDiv = document.getElementById('current-avg');
-            const debugInfoDiv = document.getElementById('debug-info');
             
             errorDiv.style.display = 'none';
             resultsContainer.style.display = 'none';
@@ -303,36 +276,17 @@
                 const rollingAvgs = [];
                 const dates = [];
                 const colors = [];
-                let debugText = "Calculation details:\n\n";
-                
-                debugText += "Raw scores in chronological order:\n";
-                data.forEach((d, i) => {
-                    debugText += `${i+1}. ${d.Date}: ${d.Percent.toFixed(4)}%\n`;
-                });
-                debugText += "\n";
                 
                 for (let i = 1; i <= data.length; i++) {
                     const recent = data.slice(0, i).slice(-8);
                     if (recent.length < 4) continue;
-                    
-                    debugText += `\nAfter ${recent.length} scores:\n`;
-                    debugText += "Recent scores used in calculation:\n";
-                    recent.forEach((d, idx) => {
-                        debugText += `${idx+1}. ${d.Date}: ${d.Percent.toFixed(4)}%\n`;
-                    });
                     
                     // Get best 6 scores or best N if less than 6 available
                     const sortedScores = [...recent].sort((a, b) => b.Percent - a.Percent);
                     const numScores = Math.min(6, sortedScores.length);
                     const best6 = sortedScores.slice(0, numScores);
                     
-                    debugText += "\nBest scores used for average:\n";
-                    best6.forEach((d, idx) => {
-                        debugText += `${idx+1}. ${d.Date}: ${d.Percent.toFixed(4)}%\n`;
-                    });
-                    
                     const avg = best6.reduce((sum, row) => sum + row.Percent, 0) / numScores;
-                    debugText += `\nAverage of best ${numScores}: ${avg.toFixed(4)}%\n`;
                     
                     rollingAvgs.push(avg);
                     dates.push(recent[recent.length - 1].DateObj);
@@ -343,10 +297,6 @@
                 if (rollingAvgs.length > 0) {
                     const currentAvg = rollingAvgs[rollingAvgs.length - 1];
                     const { currentClass, nextClass, nextThreshold } = getClassInfo(currentAvg);
-                    
-                    debugText += "\n\nCurrent classification calculation:\n";
-                    debugText += `Current average: ${currentAvg.toFixed(4)}%\n`;
-                    debugText += `Current class: ${currentClass}\n`;
                     
                     // Calculate what's needed for next class
                     currentClassDiv.textContent = `Current Class: ${currentClass}`;
@@ -361,34 +311,21 @@
                         const recent = data.slice(-8);
                         const best6 = [...recent].sort((a, b) => b.Percent - a.Percent).slice(0, 6);
                         
-                        debugText += "\nCalculating score needed for next class:\n";
-                        debugText += `Next class: ${nextClass} (threshold: ${nextThreshold}%)\n`;
-                        debugText += "Current best 6 scores:\n";
-                        
                         let totalCurrent = 0;
-                        best6.forEach((d, idx) => {
+                        best6.forEach(d => {
                             totalCurrent += d.Percent;
-                            debugText += `${idx+1}. ${d.Date}: ${d.Percent.toFixed(4)}%\n`;
                         });
                         
                         // Calculate what score is needed on next classifier to reach next class
                         // Find the lowest of the best 6 scores
                         const lowestScore = Math.min(...best6.map(d => d.Percent));
-                        const lowestScoreIdx = best6.findIndex(d => d.Percent === lowestScore);
                         const remaining5Scores = totalCurrent - lowestScore;
-                        
-                        debugText += `Lowest score: ${lowestScore.toFixed(4)}%\n`;
-                        debugText += `Sum of other 5 scores: ${remaining5Scores.toFixed(4)}%\n`;
                         
                         // Formula: (Needed Avg * 6) - (Sum of 5 best scores) = Score needed
                         // We need to replace the lowest score with a new score that brings the average up
                         const scoreNeeded = (nextThreshold * 6) - remaining5Scores;
                         
-                        debugText += `\nFormula: (${nextThreshold} * 6) - ${remaining5Scores.toFixed(4)} = ${scoreNeeded.toFixed(4)}\n`;
-                        debugText += `Score needed to reach ${nextClass} class: ${scoreNeeded.toFixed(4)}%\n`;
-                        
                         if (scoreNeeded > 100) {
-                            debugText += "\nScore needed exceeds 100%, so multiple high scores will be needed.\n";
                             nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier (impossible in one match).`;
                         } else {
                             nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier.`;
@@ -396,7 +333,6 @@
                     }
                     
                     nextClassInfoDiv.textContent = nextClassInfo;
-                    debugInfoDiv.textContent = debugText;
                     resultsContainer.style.display = 'block';
                 }
                 
@@ -422,6 +358,7 @@
             const minDate = data[0].DateObj;
             const maxDate = data[data.length - 1].DateObj;
             const timeRange = maxDate - minDate;
+            const daysInRange = timeRange / (24 * 60 * 60 * 1000);
             
             // Create scale functions
             function xScale(date) {
@@ -445,16 +382,37 @@
                 svg += `<text x="${margin.left - 10}" y="${y + 5}" text-anchor="end" font-size="12">${i}%</text>`;
             }
             
-            // Vertical lines (roughly every month)
-            const months = Math.max(1, Math.ceil(timeRange / (30 * 24 * 60 * 60 * 1000)));
-            const step = timeRange / months;
-            for (let i = 0; i <= months; i++) {
-                const date = new Date(minDate.getTime() + i * step);
+            // Determine appropriate tick spacing based on date range
+            let tickInterval;
+            let tickFormat;
+            
+            if (daysInRange <= 60) { // Less than 2 months: show weekly ticks
+                tickInterval = 7 * 24 * 60 * 60 * 1000; // One week
+                tickFormat = (date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            } else if (daysInRange <= 365) { // Less than a year: show monthly ticks
+                tickInterval = 30 * 24 * 60 * 60 * 1000; // Approximately one month
+                tickFormat = (date) => date.toLocaleDateString(undefined, { month: 'short' });
+            } else if (daysInRange <= 365 * 2) { // Less than 2 years: show quarterly ticks
+                tickInterval = 91 * 24 * 60 * 60 * 1000; // Approximately one quarter
+                tickFormat = (date) => date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+            } else { // More than 2 years: show half-yearly or yearly ticks
+                tickInterval = 182 * 24 * 60 * 60 * 1000; // Approximately half year
+                tickFormat = (date) => date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+            }
+            
+            // Calculate number of ticks to show (cap at a reasonable number)
+            const maxTicks = 12;
+            let numTicks = Math.min(maxTicks, Math.ceil(timeRange / tickInterval));
+            tickInterval = timeRange / numTicks;
+            
+            // Draw vertical grid lines
+            for (let i = 0; i <= numTicks; i++) {
+                const date = new Date(minDate.getTime() + i * tickInterval);
                 const x = xScale(date);
                 svg += `<line x1="${x}" y1="${margin.top}" x2="${x}" y2="${height - margin.bottom}" 
                         stroke="#dddddd" stroke-width="1" stroke-dasharray="5,5" />`;
-                const monthYear = date.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
-                svg += `<text x="${x}" y="${height - margin.bottom + 20}" text-anchor="middle" font-size="12">${monthYear}</text>`;
+                const label = tickFormat(date);
+                svg += `<text x="${x}" y="${height - margin.bottom + 20}" text-anchor="middle" font-size="12">${label}</text>`;
             }
             svg += `</g>`;
             
@@ -479,9 +437,6 @@
                     <title>Date: ${row.Date} - Score: ${row.Percent.toFixed(2)}%</title>
                 </g>`;
             });
-            
-            // Remove the raw scores line - it's confusing with color-coded dots
-            // We'll just rely on the colored dots for individual scores
             
             // Draw rolling avg line
             if (dates.length > 1) {
