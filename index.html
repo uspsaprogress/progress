@@ -73,6 +73,22 @@
             border-left: 5px solid #1890ff;
             font-weight: bold;
         }
+        .results-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .debug-info {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre;
+            overflow-x: auto;
+            margin-top: 15px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -97,7 +113,14 @@
         
         <button id="process-btn">Process Data</button>
         
-        <div id="next-class-info" class="next-class-info" style="display: none;"></div>
+        <div class="results-container" style="display: none;" id="results-container">
+            <h3>Classification Results</h3>
+            <div id="current-class"></div>
+            <div id="current-avg"></div>
+            <div id="next-class-info" class="next-class-info"></div>
+            <button id="toggle-debug" class="toggle-btn">Show Calculation Details</button>
+            <div id="debug-info" class="debug-info"></div>
+        </div>
         
         <div id="chart-container">
             <canvas id="chart"></canvas>
@@ -160,18 +183,34 @@
                     toggleBtn.textContent = 'Show Instructions';
                 }
             });
+            
+            // Toggle debug info visibility
+            const toggleDebugBtn = document.getElementById('toggle-debug');
+            const debugInfoDiv = document.getElementById('debug-info');
+            
+            toggleDebugBtn.addEventListener('click', function() {
+                if (debugInfoDiv.style.display === 'none') {
+                    debugInfoDiv.style.display = 'block';
+                    toggleDebugBtn.textContent = 'Hide Calculation Details';
+                } else {
+                    debugInfoDiv.style.display = 'none';
+                    toggleDebugBtn.textContent = 'Show Calculation Details';
+                }
+            });
         });
-        
-        // Process data and generate chart using regex
         
         // Process data and generate chart using regex
         document.getElementById('process-btn').addEventListener('click', function() {
             const textInput = document.getElementById('tsv-input').value.trim();
             const errorDiv = document.getElementById('error');
             const nextClassInfoDiv = document.getElementById('next-class-info');
+            const resultsContainer = document.getElementById('results-container');
+            const currentClassDiv = document.getElementById('current-class');
+            const currentAvgDiv = document.getElementById('current-avg');
+            const debugInfoDiv = document.getElementById('debug-info');
             
             errorDiv.style.display = 'none';
-            nextClassInfoDiv.style.display = 'none';
+            resultsContainer.style.display = 'none';
             
             if (!textInput) {
                 errorDiv.textContent = "Please paste data first.";
@@ -257,10 +296,6 @@
                     throw new Error("Could not find any valid date and percent pairs in the data.");
                 }
                 
-                if (data.length === 0) {
-                    throw new Error("No valid data found after parsing. Check your date and percent formats.");
-                }
-                
                 // Sort by date
                 data.sort((a, b) => a.DateObj - b.DateObj);
                 
@@ -268,14 +303,36 @@
                 const rollingAvgs = [];
                 const dates = [];
                 const colors = [];
+                let debugText = "Calculation details:\n\n";
+                
+                debugText += "Raw scores in chronological order:\n";
+                data.forEach((d, i) => {
+                    debugText += `${i+1}. ${d.Date}: ${d.Percent.toFixed(4)}%\n`;
+                });
+                debugText += "\n";
                 
                 for (let i = 1; i <= data.length; i++) {
                     const recent = data.slice(0, i).slice(-8);
                     if (recent.length < 4) continue;
                     
-                    // Get best 6 scores
-                    const best6 = [...recent].sort((a, b) => b.Percent - a.Percent).slice(0, 6);
-                    const avg = best6.reduce((sum, row) => sum + row.Percent, 0) / 6;
+                    debugText += `\nAfter ${recent.length} scores:\n`;
+                    debugText += "Recent scores used in calculation:\n";
+                    recent.forEach((d, idx) => {
+                        debugText += `${idx+1}. ${d.Date}: ${d.Percent.toFixed(4)}%\n`;
+                    });
+                    
+                    // Get best 6 scores or best N if less than 6 available
+                    const sortedScores = [...recent].sort((a, b) => b.Percent - a.Percent);
+                    const numScores = Math.min(6, sortedScores.length);
+                    const best6 = sortedScores.slice(0, numScores);
+                    
+                    debugText += "\nBest scores used for average:\n";
+                    best6.forEach((d, idx) => {
+                        debugText += `${idx+1}. ${d.Date}: ${d.Percent.toFixed(4)}%\n`;
+                    });
+                    
+                    const avg = best6.reduce((sum, row) => sum + row.Percent, 0) / numScores;
+                    debugText += `\nAverage of best ${numScores}: ${avg.toFixed(4)}%\n`;
                     
                     rollingAvgs.push(avg);
                     dates.push(recent[recent.length - 1].DateObj);
@@ -287,25 +344,60 @@
                     const currentAvg = rollingAvgs[rollingAvgs.length - 1];
                     const { currentClass, nextClass, nextThreshold } = getClassInfo(currentAvg);
                     
+                    debugText += "\n\nCurrent classification calculation:\n";
+                    debugText += `Current average: ${currentAvg.toFixed(4)}%\n`;
+                    debugText += `Current class: ${currentClass}\n`;
+                    
                     // Calculate what's needed for next class
+                    currentClassDiv.textContent = `Current Class: ${currentClass}`;
+                    currentAvgDiv.textContent = `Current Average: ${currentAvg.toFixed(2)}%`;
+                    
                     let nextClassInfo = "";
                     
                     if (currentClass === 'GM') {
                         nextClassInfo = "Congratulations! You've reached Grandmaster classification!";
                     } else {
+                        // Get the current 6 best scores
+                        const recent = data.slice(-8);
+                        const best6 = [...recent].sort((a, b) => b.Percent - a.Percent).slice(0, 6);
+                        
+                        debugText += "\nCalculating score needed for next class:\n";
+                        debugText += `Next class: ${nextClass} (threshold: ${nextThreshold}%)\n`;
+                        debugText += "Current best 6 scores:\n";
+                        
+                        let totalCurrent = 0;
+                        best6.forEach((d, idx) => {
+                            totalCurrent += d.Percent;
+                            debugText += `${idx+1}. ${d.Date}: ${d.Percent.toFixed(4)}%\n`;
+                        });
+                        
                         // Calculate what score is needed on next classifier to reach next class
-                        // Formula: (Needed Avg * 6) - (Current Avg * 5) = Score needed
-                        const scoreNeeded = (nextThreshold * 6) - (currentAvg * 5);
+                        // Find the lowest of the best 6 scores
+                        const lowestScore = Math.min(...best6.map(d => d.Percent));
+                        const lowestScoreIdx = best6.findIndex(d => d.Percent === lowestScore);
+                        const remaining5Scores = totalCurrent - lowestScore;
+                        
+                        debugText += `Lowest score: ${lowestScore.toFixed(4)}%\n`;
+                        debugText += `Sum of other 5 scores: ${remaining5Scores.toFixed(4)}%\n`;
+                        
+                        // Formula: (Needed Avg * 6) - (Sum of 5 best scores) = Score needed
+                        // We need to replace the lowest score with a new score that brings the average up
+                        const scoreNeeded = (nextThreshold * 6) - remaining5Scores;
+                        
+                        debugText += `\nFormula: (${nextThreshold} * 6) - ${remaining5Scores.toFixed(4)} = ${scoreNeeded.toFixed(4)}\n`;
+                        debugText += `Score needed to reach ${nextClass} class: ${scoreNeeded.toFixed(4)}%\n`;
                         
                         if (scoreNeeded > 100) {
-                            nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier. Good luck!`;
+                            debugText += "\nScore needed exceeds 100%, so multiple high scores will be needed.\n";
+                            nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier (impossible in one match).`;
                         } else {
                             nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier.`;
                         }
                     }
                     
                     nextClassInfoDiv.textContent = nextClassInfo;
-                    nextClassInfoDiv.style.display = 'block';
+                    debugInfoDiv.textContent = debugText;
+                    resultsContainer.style.display = 'block';
                 }
                 
                 // Create the chart manually with SVG
@@ -374,12 +466,22 @@
                 svg += `<text x="${width - margin.right + 10}" y="${y + 5}" font-size="12" fill="${color}">${label}</text>`;
             });
             
-            // Draw raw scores line (without dots)
-            svg += `<polyline points="`;
+            // Draw raw scores
             data.forEach(row => {
-                svg += `${xScale(row.DateObj)},${yScale(row.Percent)} `;
+                const x = xScale(row.DateObj);
+                const y = yScale(row.Percent);
+                const scoreColor = getClassColor(row.Percent); // Color based on classification level
+                svg += `<circle cx="${x}" cy="${y}" r="4" fill="${scoreColor}" opacity="0.5" />`;
+                
+                // Add tooltip on hover
+                svg += `<g>
+                    <circle cx="${x}" cy="${y}" r="8" fill="transparent" />
+                    <title>Date: ${row.Date} - Score: ${row.Percent.toFixed(2)}%</title>
+                </g>`;
             });
-            svg += `" fill="none" stroke="blue" stroke-width="1" opacity="0.3" />`;
+            
+            // Remove the raw scores line - it's confusing with color-coded dots
+            // We'll just rely on the colored dots for individual scores
             
             // Draw rolling avg line
             if (dates.length > 1) {
@@ -407,22 +509,6 @@
             svg += `<text x="${width/2}" y="25" text-anchor="middle" font-size="16" font-weight="bold">USPSA Classifier Progress</text>`;
             svg += `<text x="${width/2}" y="${height - 15}" text-anchor="middle" font-size="14">Date</text>`;
             svg += `<text x="20" y="${height/2}" text-anchor="middle" font-size="14" transform="rotate(-90 20,${height/2})">Classifier Average (%)</text>`;
-            
-            // Add legend
-            const legendX = margin.left;
-            const legendY = margin.top - 15;
-            
-            // Raw score legend
-            svg += `<circle cx="${legendX}" cy="${legendY}" r="4" fill="blue" opacity="0.5" />`;
-            svg += `<text x="${legendX + 10}" y="${legendY + 5}" font-size="12">Raw Scores</text>`;
-            
-            // Class legend
-            let classLegendX = legendX + 120;
-            Object.entries(classBands).forEach(([label, {color}]) => {
-                svg += `<circle cx="${classLegendX}" cy="${legendY}" r="7" fill="${color}" stroke="black" />`;
-                svg += `<text x="${classLegendX + 10}" y="${legendY + 5}" font-size="12">${label} Class</text>`;
-                classLegendX += 80;
-            });
             
             // End SVG
             svg += `</svg>`;
