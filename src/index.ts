@@ -1,3 +1,6 @@
+import { ClassifierScore } from "./classifications";
+import { parseTextInput } from "./parsing";
+
 // Class bands definition (same as Python version)
 const classBands = {
     'GM': {threshold: 95, color: 'darkred'},
@@ -59,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Process data and generate chart using regex
 document.getElementById('process-btn')?.addEventListener('click', function() {
-    const textInput = (<HTMLInputElement>document.getElementById('tsv-input'))?.value.trim() ?? "";
+    const textInput = (<HTMLInputElement>document.getElementById('tsv-input'))?.value.trim();
     const errorDiv = document.getElementById('error')!;
     const nextClassInfoDiv = document.getElementById('next-class-info');
     const resultsContainer = document.getElementById('results-container')!;
@@ -76,106 +79,29 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
     }
     
     try {
-        // Parse with regex to extract date and percent values
-        // This should be way more forgiving of formatting issues
-        const lines = textInput.split(/[\r\n]+/).filter(line => line.trim().length > 0);
+        const allClassifiers = parseTextInput(textInput);
 
-        // FIXME (casting to Any is bad, but this code will disappear shortly)
-        const data: any[] = [];
-        
-        // Date pattern: matches m/d/yy, mm/dd/yyyy, etc.
-        const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/;
-        
-        // Number pattern: matches floating point numbers like 75.2, 75,2, etc.
-        const numberPattern = /(\d+[.,]\d+)/g;
-        
-        for (const line of lines) {
-            // Skip header line if it contains text like "Date" and "Percent"
-            if (line.match(/Date|Percent|Number|Club/i) && !line.match(datePattern)) {
-                continue;
-            }
-            
-            // Try to find a date
-            const dateMatch = line.match(datePattern);
-            if (!dateMatch) continue;
-            
-            // Extract all numbers from the line
-            const numbers: number[] = [];
-            let match;
-            while ((match = numberPattern.exec(line)) !== null) {
-                numbers.push(parseFloat(match[0].replace(',', '.')));
-            }
-            
-            // Reset regex lastIndex
-            numberPattern.lastIndex = 0;
-            
-            // We need at least one number for the percent
-            if (numbers.length === 0) continue;
-            
-            // Look for a percentage value (typically the 5th value)
-            // Usually it's the 5th entry but we'll also look for values between 0-100
-            let percent;
-            
-            // Try to find a value between 0-100 which is likely the percent
-            // Most classifier scores are between 40-95%
-            for (const num of numbers) {
-                if (num >= 0 && num <= 100) {
-                    percent = num;
-                    break;
-                }
-            }
-            
-            // If no valid percent found, skip this line
-            if (percent === undefined) continue;
-            
-            // Parse the date
-            let date;
-            const month = parseInt(dateMatch[1]);
-            const day = parseInt(dateMatch[2]);
-            let year = parseInt(dateMatch[3]);
-            
-            // Handle 2-digit years
-            if (year < 100) {
-                year = year < 50 ? 2000 + year : 1900 + year;
-            }
-            
-            date = new Date(year, month - 1, day);
-            
-            // Add to data if we have valid date and percent
-            if (!isNaN(date.getTime()) && !isNaN(percent)) {
-                data.push({
-                    Date: `${month}/${day}/${year}`,
-                    DateObj: date,
-                    Percent: percent
-                });
-            }
-        }
-        
-        if (data.length === 0) {
-            throw new Error("Could not find any valid date and percent pairs in the data.");
-        }
-        
         // Sort by date
-        data.sort((a, b) => a.DateObj - b.DateObj);
-        
+        allClassifiers.sort((a, b) => a.date.getTime() - b.date.getTime());
+
         // Compute rolling averages (best 6 of 8)
         const rollingAvgs: number[] = [];
         const dates: Date[] = [];
         const colors: string[] = [];
         
-        for (let i = 1; i <= data.length; i++) {
-            const recent = data.slice(0, i).slice(-8);
+        for (let i = 1; i <= allClassifiers.length; i++) {
+            const recent = allClassifiers.slice(0, i).slice(-8);
             if (recent.length < 4) continue;
             
             // Get best 6 scores or best N if less than 6 available
-            const sortedScores = [...recent].sort((a, b) => b.Percent - a.Percent);
+            const sortedScores = [...recent].sort((a, b) => b.percent - a.percent);
             const numScores = Math.min(6, sortedScores.length);
             const best6 = sortedScores.slice(0, numScores);
             
-            const avg = best6.reduce((sum, row) => sum + row.Percent, 0) / numScores;
+            const avg = best6.reduce((sum, row) => sum + row.percent, 0) / numScores;
             
             rollingAvgs.push(avg);
-            dates.push(recent[recent.length - 1].DateObj);
+            dates.push(recent[recent.length - 1].date);
             colors.push(getClassColor(avg));
         }
         
@@ -194,17 +120,17 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
                 nextClassInfo = "Congratulations! You've reached Grandmaster classification!";
             } else {
                 // Get the current 6 best scores
-                const recent = data.slice(-8);
-                const best6 = [...recent].sort((a, b) => b.Percent - a.Percent).slice(0, 6);
+                const recent = allClassifiers.slice(-8);
+                const best6 = [...recent].sort((a, b) => b.percent - a.percent).slice(0, 6);
                 
                 let totalCurrent = 0;
                 best6.forEach(d => {
-                    totalCurrent += d.Percent;
+                    totalCurrent += d.percent;
                 });
                 
                 // Calculate what score is needed on next classifier to reach next class
                 // Find the lowest of the best 6 scores
-                const lowestScore = Math.min(...best6.map(d => d.Percent));
+                const lowestScore = Math.min(...best6.map(d => d.percent));
                 const remaining5Scores = totalCurrent - lowestScore;
                 
                 // Formula: (Needed Avg * 6) - (Sum of 5 best scores) = Score needed
@@ -223,7 +149,7 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
         }
         
         // Create the chart manually with SVG
-        const svgOutput = createSVGChart(data, dates, rollingAvgs, colors);
+        const svgOutput = createSVGChart(allClassifiers, dates, rollingAvgs, colors);
         document.getElementById('chart-container')!.innerHTML = svgOutput;
         
     } catch (e) {
@@ -234,7 +160,7 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
     }
 });
 
-function createSVGChart(data, dates, rollingAvgs, colors) {
+function createSVGChart(data: ClassifierScore[], dates: Date[], rollingAvgs: number[], colors: string[]) {
     // Set dimensions
     const width = 900;
     const height = 500;
@@ -243,17 +169,17 @@ function createSVGChart(data, dates, rollingAvgs, colors) {
     const innerHeight = height - margin.top - margin.bottom;
     
     // Find date range
-    const minDate = data[0].DateObj;
-    const maxDate = data[data.length - 1].DateObj;
-    const timeRange = maxDate - minDate;
+    const minDate = data[0].date;
+    const maxDate = data[data.length - 1].date;
+    const timeRange = maxDate.getTime() - minDate.getTime();
     const daysInRange = timeRange / (24 * 60 * 60 * 1000);
     
     // Create scale functions
-    function xScale(date) {
-        return margin.left + (innerWidth * (date - minDate) / timeRange);
+    function xScale(date: Date) {
+        return margin.left + (innerWidth * (date.getTime() - minDate.getTime()) / timeRange);
     }
     
-    function yScale(value) {
+    function yScale(value: number) {
         return margin.top + innerHeight - (innerHeight * value / 100);
     }
     
@@ -314,15 +240,15 @@ function createSVGChart(data, dates, rollingAvgs, colors) {
     
     // Draw raw scores
     data.forEach(row => {
-        const x = xScale(row.DateObj);
-        const y = yScale(row.Percent);
-        const scoreColor = getClassColor(row.Percent); // Color based on classification level
+        const x = xScale(row.date);
+        const y = yScale(row.percent);
+        const scoreColor = getClassColor(row.percent); // Color based on classification level
         svg += `<circle cx="${x}" cy="${y}" r="4" fill="${scoreColor}" opacity="0.5" />`;
         
         // Add tooltip on hover
         svg += `<g>
             <circle cx="${x}" cy="${y}" r="8" fill="transparent" />
-            <title>Date: ${row.Date} - Score: ${row.Percent.toFixed(2)}%</title>
+            <title>Date: ${row.date} - Score: ${row.percent.toFixed(2)}%</title>
         </g>`;
     });
     
