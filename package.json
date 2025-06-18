@@ -1,0 +1,30 @@
+{
+  "name": "uspsaprogress",
+  "version": "1.0.0",
+  "description": "porgres",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test/**/*.test.ts",
+    "test:watch": "mocha -w",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean && npm run test",
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uspsaprogress/progress.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/uspsaprogress/progress/issues"
+  },
+  "homepage": "https://github.com/uspsaprogress/progress#readme",
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.0.3",
+    "mocha": "^11.6.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
