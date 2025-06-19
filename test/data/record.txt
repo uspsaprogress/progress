@@ -1,0 +1,22 @@
+Date 	Number 	Club 	F 	Percent 	HF 	Entered 	Source
+6/01/25 	09-10 	Custer Sportsmens Club 	Y 	95.0488 	11.2840 	6/10/25 	Stage Score
+11/03/24 	19-02 	Custer Sportsmens Club 	Y 	99.0984 	10.0346 	11/25/24 	Stage Score
+9/01/24 	99-13 	Custer Sportsmens Club 	F 	86.8580 	8.3051 	9/02/24 	Stage Score
+7/07/24 	20-01 	Custer Sportsmens Club 	Y 	97.4605 	8.5546 	7/08/24 	Stage Score
+6/02/24 	18-03 	Custer Sportsmens Club 	F 	87.4095 	6.7981 	6/24/24 	Stage Score
+3/03/24 	23-01 	Custer Sportsmens Club 	Y 	100.0000 	10.3250 	3/05/24 	Stage Score
+3/03/24 	99-53 	Custer Sportsmens Club 	Y 	95.5208 	6.9948 	3/05/24 	Stage Score
+3/03/24 	99-28 	Custer Sportsmens Club 	Y 	92.7446 	10.0870 	3/05/24 	Stage Score
+3/03/24 	22-07 	Custer Sportsmens Club 	E 	91.7118 	8.9474 	3/05/24 	Stage Score
+3/03/24 	23-02 	Custer Sportsmens Club 	E 	91.8159 	9.3913 	3/05/24 	Stage Score
+3/03/24 	99-10 	Custer Sportsmens Club 	E 	88.7360 	9.1525 	3/05/24 	Stage Score
+3/03/24 	09-08 	Custer Sportsmens Club 	E 	87.4962 	8.0717 	3/05/24 	Stage Score
+3/03/24 	99-14 	Custer Sportsmens Club 	E 	67.0886 	53.0000 	3/05/24 	Stage Score
+1/26/24 	22-01 	WAC Gulf Coast Lead Slingers 	E 	94.0125 	8.0392 	1/30/24 	Stage Score
+1/07/24 	06-10 	Custer Sportsmens Club 	E 	71.5424 	7.4442 	1/27/24 	Stage Score
+12/03/23 	99-42 	Custer Sportsmens Club 	E 	83.4255 	8.1123 	12/05/23 	Stage Score
+8/06/23 	08-01 	Custer Sportsmens Club 	E 	85.3823 	4.8831 	8/07/23 	Stage Score
+7/15/23 	99-24 	Marysville Rifle Club Practical Shooters 	E 	75.4203 	8.8189 	7/17/23 	Stage Score
+7/02/23 	18-06 	Custer Sportsmens Club 	E 	62.1615 	3.7599 	7/06/23 	Stage Score
+6/04/23 	06-10 	Custer Sportsmens Club 	E 	97.0755 	10.1010 	6/15/23 	Stage Score
+5/07/23 	03-08 	Custer Sportsmens Club 	E 	72.5517 	7.4972 	5/08/23 	Stage Score

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USPSA Classifier Progress</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 10px;
+            font-family: monospace;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            align-self: flex-start;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .toggle-btn {
+            background-color: #6c757d;
+            margin-bottom: 10px;
+        }
+        .toggle-btn:hover {
+            background-color: #545b62;
+        }
+        #chart-container {
+            width: 100%;
+            height: 500px;
+            margin-top: 20px;
+        }
+        .error {
+            padding: 10px;
+            background-color: #ffdddd;
+            border-left: 5px solid #f44336;
+            margin-bottom: 15px;
+        }
+        .instructions {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .instructions-container {
+            margin-bottom: 10px;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .next-class-info {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #e6f7ff;
+            border-left: 5px solid #1890ff;
+            font-weight: bold;
+        }
+        .results-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>USPSA Classifier Progress Tracker</h1>
+        
+        <div class="instructions-container">
+            <button id="toggle-instructions" class="toggle-btn">Show Instructions</button>
+            <div class="instructions" style="display: none;">
+                <h3>Instructions:</h3>
+                <p>Go to the <a href=https://uspsa.org/classification">USPSA classification page</a> and enter your member number. Copy the classifier table for the division of your choosing and paste it into the text box below. The app will extract dates and percentages automatically.</p>
+                <p>Example format:</p>
+                <pre>Date	Number	Club	F	Percent	HF	Entered	Source
+5/15/23	23-01	BRRC	8.43	57.8	4.87	Y	WM
+6/20/23	22-09	BRRC	13.31	67.4	8.97	Y	WM</pre>
+            </div>
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <textarea id="tsv-input" placeholder="Paste your TSV data here..."></textarea>
+        
+        <button id="process-btn">Process Data</button>
+        
+        <div class="results-container" style="display: none;" id="results-container">
+            <h3>Classification Results</h3>
+            <div id="current-class"></div>
+            <div id="current-avg"></div>
+            <div id="next-class-info" class="next-class-info"></div>
+        </div>
+        
+        <div id="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
+    </div>
+    
+    <script src="./bundle.js"></script>
+</body>
+</html>
