@@ -1,4 +1,4 @@
-import { ClassifierScore } from "./classifications";
+import { ClassifierScore, ClassificationSnapshot, getClassificationHistory, sortClassifiers } from "./classifications";
 import { parseTextInput } from "./parsing";
 
 // Class bands definition (same as Python version)
@@ -79,35 +79,15 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
     }
     
     try {
-        const allClassifiers = parseTextInput(textInput);
+        const allClassifiers = sortClassifiers(parseTextInput(textInput));
+        const history = getClassificationHistory(allClassifiers);
 
         // Sort by date
         allClassifiers.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-        // Compute rolling averages (best 6 of 8)
-        const rollingAvgs: number[] = [];
-        const dates: Date[] = [];
-        const colors: string[] = [];
-        
-        for (let i = 1; i <= allClassifiers.length; i++) {
-            const recent = allClassifiers.slice(0, i).slice(-8);
-            if (recent.length < 4) continue;
-            
-            // Get best 6 scores or best N if less than 6 available
-            const sortedScores = [...recent].sort((a, b) => b.percent - a.percent);
-            const numScores = Math.min(6, sortedScores.length);
-            const best6 = sortedScores.slice(0, numScores);
-            
-            const avg = best6.reduce((sum, row) => sum + row.percent, 0) / numScores;
-            
-            rollingAvgs.push(avg);
-            dates.push(recent[recent.length - 1].date);
-            colors.push(getClassColor(avg));
-        }
         
         // Calculate next class info
-        if (rollingAvgs.length > 0) {
-            const currentAvg = rollingAvgs[rollingAvgs.length - 1];
+        if (history.length > 0) {
+            const currentAvg = history[history.length - 1].percentage;
             const { currentClass, nextClass, nextThreshold } = getClassInfo(currentAvg);
             
             // Calculate what's needed for next class
@@ -137,8 +117,10 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
                 // We need to replace the lowest score with a new score that brings the average up
                 const scoreNeeded = (nextThreshold * 6) - remaining5Scores;
                 
-                if (scoreNeeded > 100) {
+                if (scoreNeeded > 110) {
                     nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier (impossible in one match).`;
+                } else if (scoreNeeded > 100) {
+                    nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier (USPSA now recognizes scores up to 110% of the HHF).`;
                 } else {
                     nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier.`;
                 }
@@ -149,7 +131,7 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
         }
         
         // Create the chart manually with SVG
-        const svgOutput = createSVGChart(allClassifiers, dates, rollingAvgs, colors);
+        const svgOutput = createSVGChart(allClassifiers, history);
         document.getElementById('chart-container')!.innerHTML = svgOutput;
         
     } catch (e) {
@@ -160,7 +142,7 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
     }
 });
 
-function createSVGChart(data: ClassifierScore[], dates: Date[], rollingAvgs: number[], colors: string[]) {
+function createSVGChart(data: ClassifierScore[], history: ClassificationSnapshot[]) {
     // Set dimensions
     const width = 900;
     const height = 500;
@@ -253,26 +235,26 @@ function createSVGChart(data: ClassifierScore[], dates: Date[], rollingAvgs: num
     });
     
     // Draw rolling avg line
-    if (dates.length > 1) {
+    if (history.length > 1) {
         svg += `<polyline points="`;
-        dates.forEach((date, i) => {
-            svg += `${xScale(date)},${yScale(rollingAvgs[i])} `;
-        });
+        for (const snapshot of history) {
+            svg += `${xScale(snapshot.date)},${yScale(snapshot.percentage)} `;
+        };
         svg += `" fill="none" stroke="black" stroke-width="2" opacity="0.7" />`;
     }
     
     // Draw colored points for rolling avg
-    dates.forEach((date, i) => {
-        const x = xScale(date);
-        const y = yScale(rollingAvgs[i]);
-        svg += `<circle cx="${x}" cy="${y}" r="7" fill="${colors[i]}" stroke="black" />`;
+    for (const snapshot of history) {
+        const x = xScale(snapshot.date);
+        const y = yScale(snapshot.percentage);
+        svg += `<circle cx="${x}" cy="${y}" r="7" fill="${getClassColor(snapshot.percentage)}" stroke="black" />`;
         
         // Add tooltip on hover
         svg += `<g>
             <circle cx="${x}" cy="${y}" r="12" fill="transparent" />
-            <title>Date: ${date.toLocaleDateString()} - Avg: ${rollingAvgs[i].toFixed(2)}%</title>
+            <title>Date: ${snapshot.date.toLocaleDateString()} - Avg: ${snapshot.percentage.toFixed(2)}%</title>
         </g>`;
-    });
+    }
     
     // Add title and labels
     svg += `<text x="${width/2}" y="25" text-anchor="middle" font-size="16" font-weight="bold">USPSA Classifier Progress</text>`;
