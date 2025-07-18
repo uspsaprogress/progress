@@ -3,7 +3,7 @@ import _ from "lodash";
 
 export interface ClassifierScore {
     date: Date,
-    classifierNumber: string,
+    classifierNumber?: string,
     percent: number,
     club?: string,
     flag?: string,

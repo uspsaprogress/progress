@@ -19,6 +19,17 @@ describe("parseLine", () => {
         }
         assert.deepEqual(parseLine(input1), expectedOutput);
     })
+
+    it("should parse major matches", () => {
+        const input = "6/26/24 		2024 SIG Sauer Carry Optics Nationals Presented by Vortex Optics at US01 	F 	90.8692 	- 	- 	Major Match";
+        const expectedOutput: ClassifierScore = {
+            date: new Date("6/26/24"),
+            club: "2024 SIG Sauer Carry Optics Nationals Presented by Vortex Optics at US01",
+            flag: "F",
+            percent: 90.8692
+        };
+        assert.deepEqual(parseLine(input), expectedOutput);
+    })
 })
 
 describe("parseTextInput", () => {
