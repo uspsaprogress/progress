@@ -1,4 +1,4 @@
-import { ClassifierScore, ClassificationSnapshot, getClassificationHistory, sortClassifiers } from "./classifications";
+import { ClassifierScore, ClassificationSnapshot, getClassificationHistory, sortClassifiers, scoreNeededForTarget } from "./classifications";
 import { parseTextInput } from "./parsing";
 
 // Class bands definition (same as Python version)
@@ -89,43 +89,51 @@ document.getElementById('process-btn')?.addEventListener('click', function() {
         if (history.length > 0) {
             const currentAvg = history[history.length - 1].percentage;
             const { currentClass, nextClass, nextThreshold } = getClassInfo(currentAvg);
-            
-            // Calculate what's needed for next class
-            currentClassDiv!.textContent = `Current Class: ${currentClass}`;
-            currentAvgDiv!.textContent = `Current Average: ${currentAvg.toFixed(2)}%`;
-            
-            let nextClassInfo = "";
-            
-            if (currentClass === 'GM') {
-                nextClassInfo = "Congratulations! You've reached Grandmaster classification!";
-            } else {
-                // Get the current 6 best scores
-                const recent = allClassifiers.slice(-8);
-                const best6 = [...recent].sort((a, b) => b.percent - a.percent).slice(0, 6);
-                
-                let totalCurrent = 0;
-                best6.forEach(d => {
-                    totalCurrent += d.percent;
-                });
-                
-                // Calculate what score is needed on next classifier to reach next class
-                // Find the lowest of the best 6 scores
-                const lowestScore = Math.min(...best6.map(d => d.percent));
-                const remaining5Scores = totalCurrent - lowestScore;
-                
-                // Formula: (Needed Avg * 6) - (Sum of 5 best scores) = Score needed
-                // We need to replace the lowest score with a new score that brings the average up
-                const scoreNeeded = (nextThreshold * 6) - remaining5Scores;
-                
-                if (scoreNeeded > 110) {
-                    nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier (impossible in one match).`;
-                } else if (scoreNeeded > 100) {
-                    nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier (USPSA now recognizes scores up to 110% of the HHF).`;
-                } else {
-                    nextClassInfo = `To reach ${nextClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier.`;
+
+            // Find all-time high rolling average and its class
+            let maxAvg = currentAvg;
+            let maxClass = currentClass;
+            for (const snap of history) {
+                if (snap.percentage > maxAvg) {
+                    maxAvg = snap.percentage;
+                    maxClass = getClassInfo(snap.percentage).currentClass;
                 }
             }
-            
+
+            currentClassDiv!.textContent = `Current Class: ${currentClass}`;
+            currentAvgDiv!.textContent = `Current Average: ${currentAvg.toFixed(2)}%`;
+            // Show all-time high
+            const allTimeDiv = document.getElementById('all-time-high');
+            if (allTimeDiv) {
+                allTimeDiv.textContent = `All-time High: ${maxAvg.toFixed(2)}% (${maxClass})`;
+                allTimeDiv.style.display = 'block';
+            }
+
+            let nextClassInfo = "";
+            if (maxClass === 'GM') {
+                nextClassInfo = "Congratulations! You've reached Grandmaster classification!";
+            } else {
+                // Always show what it takes to class up past your all-time best class
+                // Find the next class above your all-time best
+                const classOrder = ['D', 'C', 'B', 'A', 'M', 'GM'];
+                const maxClassIdx = classOrder.indexOf(maxClass);
+                const nextBestClass = classOrder[maxClassIdx + 1];
+                const nextBestThreshold = classBands[nextBestClass]?.threshold;
+                if (!nextBestThreshold) {
+                    nextClassInfo = "No higher class available.";
+                } else {
+                    const scoreNeeded = scoreNeededForTarget(allClassifiers, nextBestThreshold);
+                    if (scoreNeeded === null) {
+                        nextClassInfo = `Not enough scores yet to compute a rolling average.`;
+                    } else if (scoreNeeded > 110) {
+                        nextClassInfo = `To reach ${nextBestClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier (impossible in one match).`;
+                    } else if (scoreNeeded > 100) {
+                        nextClassInfo = `To reach ${nextBestClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier (USPSA now recognizes scores up to 110% of the HHF).`;
+                    } else {
+                        nextClassInfo = `To reach ${nextBestClass} class, you need: ${scoreNeeded.toFixed(2)}% on your next classifier.`;
+                    }
+                }
+            }
             nextClassInfoDiv!.textContent = nextClassInfo;
             resultsContainer.style.display = 'block';
         }
